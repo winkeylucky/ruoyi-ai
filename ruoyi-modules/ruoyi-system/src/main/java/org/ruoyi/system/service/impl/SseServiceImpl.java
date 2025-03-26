@@ -157,56 +157,8 @@ public class SseServiceImpl implements ISseService {
             }
             String zhipuValue = configService.getConfigValue("zhipu", "key");
             // 添加联网信息
-            if(StringUtils.isNotEmpty(zhipuValue)){
-                ClientV4 client = new ClientV4.Builder(zhipuValue)
-                        .networkConfig(300, 100, 100, 100, TimeUnit.SECONDS)
-                        .connectionPool(new okhttp3.ConnectionPool(8, 1, TimeUnit.SECONDS))
-                        .build();
-
-                SearchChatMessage jsonNodes = new SearchChatMessage();
-                jsonNodes.setRole(Message.Role.USER.getName());
-                jsonNodes.setContent(chatString);
-
-                String requestId = String.format(requestIdTemplate, System.currentTimeMillis());
-                WebSearchParamsRequest chatCompletionRequest = WebSearchParamsRequest.builder()
-                        .model("web-search-pro")
-                        .stream(Boolean.TRUE)
-                        .messages(Collections.singletonList(jsonNodes))
-                        .requestId(requestId)
-                        .build();
-                WebSearchApiResponse webSearchApiResponse = client.webSearchProStreamingInvoke(chatCompletionRequest);
-                List<ChoiceDelta> choices = new ArrayList<>();
-                if (webSearchApiResponse.isSuccess()) {
-                    AtomicBoolean isFirst = new AtomicBoolean(true);
-
-                    AtomicReference<WebSearchPro> lastAccumulator = new AtomicReference<>();
-
-                    webSearchApiResponse.getFlowable().map(result -> result)
-                            .doOnNext(accumulator -> {
-                                {
-                                    if (isFirst.getAndSet(false)) {
-                                        log.info("Response: ");
-                                    }
-                                    ChoiceDelta delta = accumulator.getChoices().get(0).getDelta();
-                                    if (delta != null && delta.getToolCalls() != null) {
-                                        log.info("tool_calls: {}", mapper.writeValueAsString(delta.getToolCalls()));
-                                    }
-                                    choices.add(delta);
-                                }
-                            })
-                            .doOnComplete(() -> System.out.println("Stream completed."))
-                            .doOnError(throwable -> System.err.println("Error: " + throwable))
-                            .blockingSubscribe();
-
-                    WebSearchPro chatMessageAccumulator = lastAccumulator.get();
-
-                    webSearchApiResponse.setFlowable(null);// 打印前置空
-                    webSearchApiResponse.setData(chatMessageAccumulator);
-                }
-
-
-                Message message = Message.builder().role(Message.Role.ASSISTANT).content(choices.get(1).getToolCalls().toString()).build();
-                messages.add(message);
+            if(chatRequest.getChatType()==1 && StringUtils.isNotEmpty(zhipuValue)){
+                webSearch(zhipuValue, chatString, messages);
             }
 
             if ("openCmd".equals(chatRequest.getModel())) {
@@ -232,6 +184,58 @@ public class SseServiceImpl implements ISseService {
             return sseEmitter;
         }
         return sseEmitter;
+    }
+
+    private static void webSearch(String zhipuValue, String chatString, List<Message> messages) {
+        ClientV4 client = new ClientV4.Builder(zhipuValue)
+                .networkConfig(300, 100, 100, 100, TimeUnit.SECONDS)
+                .connectionPool(new ConnectionPool(8, 1, TimeUnit.SECONDS))
+                .build();
+
+        SearchChatMessage jsonNodes = new SearchChatMessage();
+        jsonNodes.setRole(Message.Role.USER.getName());
+        jsonNodes.setContent(chatString);
+
+        String requestId = String.format(requestIdTemplate, System.currentTimeMillis());
+        WebSearchParamsRequest chatCompletionRequest = WebSearchParamsRequest.builder()
+                .model("web-search-pro")
+                .stream(Boolean.TRUE)
+                .messages(Collections.singletonList(jsonNodes))
+                .requestId(requestId)
+                .build();
+        WebSearchApiResponse webSearchApiResponse = client.webSearchProStreamingInvoke(chatCompletionRequest);
+        List<ChoiceDelta> choices = new ArrayList<>();
+        if (webSearchApiResponse.isSuccess()) {
+            AtomicBoolean isFirst = new AtomicBoolean(true);
+
+            AtomicReference<WebSearchPro> lastAccumulator = new AtomicReference<>();
+
+            webSearchApiResponse.getFlowable().map(result -> result)
+                    .doOnNext(accumulator -> {
+                        {
+                            if (isFirst.getAndSet(false)) {
+                                log.info("Response: ");
+                            }
+                            ChoiceDelta delta = accumulator.getChoices().get(0).getDelta();
+                            if (delta != null && delta.getToolCalls() != null) {
+                                log.info("tool_calls: {}", mapper.writeValueAsString(delta.getToolCalls()));
+                            }
+                            choices.add(delta);
+                        }
+                    })
+                    .doOnComplete(() -> System.out.println("Stream completed."))
+                    .doOnError(throwable -> System.err.println("Error: " + throwable))
+                    .blockingSubscribe();
+
+            WebSearchPro chatMessageAccumulator = lastAccumulator.get();
+
+            webSearchApiResponse.setFlowable(null);// 打印前置空
+            webSearchApiResponse.setData(chatMessageAccumulator);
+        }
+        String recall=choices.get(1).getToolCalls().toString();
+        log.info("联网召回：{}",recall);
+        Message message = Message.builder().role(Message.Role.USER).content(recall).build();
+        messages.add(message);
     }
 
     public String cmdPlugin(List<Message> messages) {

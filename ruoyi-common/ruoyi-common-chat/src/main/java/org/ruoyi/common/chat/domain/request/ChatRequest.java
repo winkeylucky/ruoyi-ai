@@ -40,6 +40,11 @@ public class ChatRequest {
     private String kid;
 
     private String userId;
+
+    /**
+     * 1 联网搜索
+     */
+    private int chatType;
 //
 
 //
