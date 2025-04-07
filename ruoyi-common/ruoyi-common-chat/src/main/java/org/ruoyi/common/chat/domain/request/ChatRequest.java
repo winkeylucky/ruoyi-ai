@@ -45,6 +45,11 @@ public class ChatRequest {
      * 1 联网搜索
      */
     private int chat_type;
+
+    /**
+     * 应用ID
+     */
+    private String appId;
 //
 
 //
