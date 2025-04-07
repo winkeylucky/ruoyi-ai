@@ -44,7 +44,7 @@ public class ChatRequest {
     /**
      * 1 联网搜索
      */
-    private int chatType;
+    private int chat_type;
 //
 
 //

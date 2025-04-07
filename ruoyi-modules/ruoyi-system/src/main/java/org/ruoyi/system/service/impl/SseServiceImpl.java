@@ -157,7 +157,7 @@ public class SseServiceImpl implements ISseService {
             }
             String zhipuValue = configService.getConfigValue("zhipu", "key");
             // 添加联网信息
-            if(chatRequest.getChatType()==1 && StringUtils.isNotEmpty(zhipuValue)){
+            if(chatRequest.getChat_type()==1 && StringUtils.isNotEmpty(zhipuValue)){
                 webSearch(zhipuValue, chatString, messages);
             }
 
