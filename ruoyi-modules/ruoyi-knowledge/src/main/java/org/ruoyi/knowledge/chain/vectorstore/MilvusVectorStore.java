@@ -67,7 +67,7 @@ public class MilvusVectorStore implements VectorStore {
         FieldType contentField = FieldType.newBuilder()
                 .withName("content")
                 .withDataType(DataType.VarChar)
-                .withMaxLength(1000)
+                .withMaxLength(2000)
                 .build();
         FieldType kidField = FieldType.newBuilder()
                 .withName("kid")
